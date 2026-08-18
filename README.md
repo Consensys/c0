@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> The canonical fork of c0 is [SolZero](https://github.com/SolZeroAI/platform). SolZero is a superset of c0 and includes additional features such as an improved Agent harness, SolZero Bot (a la Grok Bot), Cloudflare AI Gateway, a Grok harness, bug fixes, and more.
+> We recommend using SolZero for all new projects.
+
 ![c0 Agent landing page](docs/c0-landing.jpg)
 
 # c0

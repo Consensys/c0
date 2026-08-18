@@ -21,6 +21,7 @@ import {
   Mail,
   MessageSquare,
   Play,
+  Timer,
   UserCheck,
   Webhook,
   Wrench,
@@ -323,6 +324,7 @@ export const WORKFLOW_NODE_ICON_COMPONENTS: Record<WorkflowNodeEditorIcon, Lucid
   mail: Mail,
   message: MessageSquare,
   play: Play,
+  timer: Timer,
   "user-check": UserCheck,
   webhook: Webhook,
 }

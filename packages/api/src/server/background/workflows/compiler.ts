@@ -648,6 +648,26 @@ function getIfElseExpression(node) {
     : DEFAULT_IF_ELSE_EXPRESSION;
 }
 
+const SLEEP_DURATION_PATTERN = /^\\s*[1-9]\\d*\\s*(?:second|minute|hour|day|week|month|year)s?\\s*$/i;
+const DEFAULT_SLEEP_DURATION = "5 minutes";
+
+function getSleepDuration(node) {
+  const duration = node.options.duration;
+  if (typeof duration === "number" && Number.isInteger(duration) && duration > 0) {
+    return duration;
+  }
+  if (typeof duration === "string" && SLEEP_DURATION_PATTERN.test(duration)) {
+    return duration.trim();
+  }
+  return DEFAULT_SLEEP_DURATION;
+}
+
+async function runSleepNode(step, node, inputs) {
+  await step.sleep(node.id + ":sleep", getSleepDuration(node));
+  const value = Object.prototype.hasOwnProperty.call(inputs, "value") ? inputs.value : null;
+  return { outputs: { value } };
+}
+
 function getApprovalEventType(context, node) {
   return "workflow-approval:" + context.workflowId + ":" + context.runId + ":" + node.id;
 }
@@ -861,9 +881,11 @@ export class TenantWorkflow extends WorkflowEntrypoint {
           );
           const result = node.type === "user-approval"
             ? await waitForApprovalNode(this.env, step, node, inputs, context)
-            : await step.do(node.id + ":action", ACTION_STEP_CONFIG, async () =>
-                executeNode(this.env, node, inputs, trigger, context)
-              );
+            : node.type === "sleep"
+              ? await runSleepNode(step, node, inputs)
+              : await step.do(node.id + ":action", ACTION_STEP_CONFIG, async () =>
+                  executeNode(this.env, node, inputs, trigger, context)
+                );
           const normalized = normalizeActionResult(result);
           context.outputs[node.id] = normalized.outputs ?? {};
           await step.do(node.id + ":event:completed", async () =>

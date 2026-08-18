@@ -172,6 +172,43 @@ describe("workflow node module", () => {
     ).toEqual([])
   })
 
+  it("exposes the sleep node as an inline logic pass-through with a default duration", () => {
+    const definition = getWorkflowNodeDefinition("sleep")
+    expect(definition.category).toBe("logic")
+    expect(definition.runtime).toEqual({ kind: "inline", executor: "sleep" })
+    expect(definition.inputs.map((input) => input.id)).toEqual(["value"])
+    expect(definition.outputs.map((output) => output.id)).toEqual(["value"])
+    expect(getWorkflowNodeDefaultOptions("sleep")).toEqual({ duration: "5 minutes" })
+  })
+
+  it("validates sleep durations against Cloudflare Workflows duration labels", () => {
+    expect(
+      validateWorkflowNodeOptions({
+        nodes: [
+          { id: "seconds", type: "sleep", options: { duration: "30 seconds" } },
+          { id: "minutes", type: "sleep", options: { duration: "5 minutes" } },
+          { id: "day", type: "sleep", options: { duration: "1 day" } },
+          { id: "millis", type: "sleep", options: { duration: 300_000 } },
+          { id: "default", type: "sleep", options: {} },
+        ],
+        edges: [],
+      }).errors,
+    ).toEqual([])
+
+    expect(
+      validateWorkflowNodeOptions({
+        nodes: [
+          { id: "fortnight", type: "sleep", options: { duration: "2 fortnights" } },
+          { id: "zero", type: "sleep", options: { duration: 0 } },
+        ],
+        edges: [],
+      }).errors,
+    ).toEqual([
+      "Workflow node 'fortnight' has invalid sleep duration '2 fortnights'. Use a positive number of milliseconds or a duration such as '30 seconds', '5 minutes', or '1 day'.",
+      "Workflow node 'zero' has invalid sleep duration '0'. Use a positive number of milliseconds or a duration such as '30 seconds', '5 minutes', or '1 day'.",
+    ])
+  })
+
   it("validates template references against connected inputs", () => {
     expect(
       validateWorkflowNodeTemplateReferences({

@@ -50,6 +50,17 @@ export type {
 
 export const WORKFLOW_JSON_OBJECT_FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/
 
+// Matches Cloudflare Workflows sleep durations such as "30 seconds", "5 minutes", or "1 day".
+export const WORKFLOW_SLEEP_DURATION_PATTERN =
+  /^\s*[1-9]\d*\s*(?:second|minute|hour|day|week|month|year)s?\s*$/i
+
+export function isValidWorkflowSleepDuration(value: unknown): boolean {
+  if (typeof value === "number") {
+    return Number.isInteger(value) && value > 0
+  }
+  return typeof value === "string" && WORKFLOW_SLEEP_DURATION_PATTERN.test(value)
+}
+
 interface WorkflowNodeOptionTarget {
   id: string
   type: string
@@ -186,6 +197,9 @@ export function validateWorkflowNodeOptions(manifest: WorkflowNodeValidationGrap
     if (validation.optionRules.includes("json-object-fields")) {
       errors.push(...validateJsonObjectNodeOptions(node))
       warnings.push(...collectJsonObjectNodeWarnings(node))
+    }
+    if (validation.optionRules.includes("sleep-duration")) {
+      errors.push(...validateSleepNodeOptions(node))
     }
     if (validation.optionRules.includes("storage-key-portability")) {
       warnings.push(...collectStorageNodeWarnings(node))
@@ -372,6 +386,19 @@ function validateJsonObjectNodeOptions(node: WorkflowNodeOptionTarget): string[]
     seen.add(field)
   })
   return errors
+}
+
+function validateSleepNodeOptions(node: WorkflowNodeOptionTarget): string[] {
+  if (node.type !== "sleep") {
+    return []
+  }
+  const duration = node.options.duration
+  if (duration === undefined || duration === "" || isValidWorkflowSleepDuration(duration)) {
+    return []
+  }
+  return [
+    `Workflow node '${node.id}' has invalid sleep duration '${String(duration)}'. Use a positive number of milliseconds or a duration such as '30 seconds', '5 minutes', or '1 day'.`,
+  ]
 }
 
 function collectJsonObjectNodeWarnings(node: WorkflowNodeOptionTarget): string[] {

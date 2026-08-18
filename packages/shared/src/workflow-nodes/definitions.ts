@@ -11,6 +11,7 @@ export const WORKFLOW_NODE_TYPES = [
   "if-else",
   "json-object",
   "user-approval",
+  "sleep",
   "http-request",
   "isolate-session",
   "sandbox-session",
@@ -43,7 +44,12 @@ export type WorkflowNodeCategory =
   | "storage"
 export type WorkflowNodeAdapterCategory = Exclude<WorkflowNodeCategory, "trigger" | "logic">
 export type WorkflowNodeTriggerKind = "manual" | "webhook" | "datetime" | "cron" | "slack"
-export type WorkflowNodeInlineExecutor = "javascript" | "if-else" | "json-object" | "user-approval"
+export type WorkflowNodeInlineExecutor =
+  | "javascript"
+  | "if-else"
+  | "json-object"
+  | "user-approval"
+  | "sleep"
 export type WorkflowNodeRuntimeSupport =
   | {
       kind: "trigger"
@@ -72,6 +78,7 @@ export type WorkflowNodeDefaultOptionsDefinition =
 export type WorkflowNodeOptionValidationRule =
   | "isolate-subagents"
   | "json-object-fields"
+  | "sleep-duration"
   | "storage-binding"
   | "storage-key-portability"
 
@@ -93,6 +100,7 @@ export type WorkflowNodeEditorIcon =
   | "mail"
   | "message"
   | "play"
+  | "timer"
   | "user-check"
   | "webhook"
 
@@ -107,6 +115,7 @@ export type WorkflowNodeEditorConfiguration =
   | "if-condition"
   | "json-object-fields"
   | "user-approval"
+  | "sleep-duration"
   | "http-request"
   | "notification"
   | "slack-action"
@@ -196,6 +205,11 @@ const workflowStorageNodeValidation = {
 
 const workflowJsonObjectNodeValidation = {
   optionRules: ["json-object-fields"],
+  templateReferences: "connected-inputs",
+} as const satisfies WorkflowNodeValidationSupport
+
+const workflowSleepNodeValidation = {
+  optionRules: ["sleep-duration"],
   templateReferences: "connected-inputs",
 } as const satisfies WorkflowNodeValidationSupport
 
@@ -364,6 +378,18 @@ export const WORKFLOW_NODE_CATALOG = [
     validation: workflowNodeBaseValidation,
     runtime: { kind: "inline", executor: "user-approval" },
     editor: { icon: "user-check", configuration: "user-approval" },
+  },
+  {
+    type: "sleep",
+    label: "Sleep",
+    description: "Pause the workflow for a fixed duration, then continue.",
+    category: "logic",
+    inputs: [{ id: "value", type: "any" }],
+    outputs: [{ id: "value", type: "any" }],
+    defaults: { strategy: "static", options: { duration: "5 minutes" } },
+    validation: workflowSleepNodeValidation,
+    runtime: { kind: "inline", executor: "sleep" },
+    editor: { icon: "timer", configuration: "sleep-duration" },
   },
   {
     type: "http-request",

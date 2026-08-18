@@ -570,6 +570,15 @@ export function NodeInspector({
                 </>
               ) : null}
 
+              {node.type === "sleep" ? (
+                <LabeledInput
+                  label="Duration"
+                  value={String(node.options.duration ?? "")}
+                  onChange={(value) => updateOption("duration", value)}
+                  helpText="How long to pause before continuing, such as 30 seconds, 5 minutes, or 1 day. The workflow does not consume compute while sleeping."
+                />
+              ) : null}
+
               {node.type === "http-request" ? (
                 <>
                   <LabeledSelect

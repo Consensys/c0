@@ -610,6 +610,109 @@ describe("compileWorkflowToJavaScript", () => {
     })
   })
 
+  it("pauses sleep nodes with a durable step sleep and passes the input through", async () => {
+    const manifest: WorkflowManifest = {
+      version: WORKFLOW_MANIFEST_VERSION,
+      name: "Sleep workflow",
+      nodes: [
+        {
+          id: "manual",
+          type: "manual-trigger",
+          label: "Manual",
+          position: { x: 80, y: 100 },
+          options: {},
+        },
+        {
+          id: "wait",
+          type: "sleep",
+          label: "Wait",
+          position: { x: 320, y: 100 },
+          options: { duration: "5 minutes" },
+        },
+        {
+          id: "fallbackWait",
+          type: "sleep",
+          label: "Fallback wait",
+          position: { x: 560, y: 100 },
+          options: { duration: "later" },
+        },
+      ],
+      edges: [
+        {
+          id: "manual-wait",
+          source: "manual",
+          target: "wait",
+          sourceHandle: "payload",
+          targetHandle: "value",
+        },
+        {
+          id: "wait-fallbackWait",
+          source: "wait",
+          target: "fallbackWait",
+          sourceHandle: "value",
+          targetHandle: "value",
+        },
+      ],
+    }
+    const context = createContext({
+      resultPromise: null as Promise<{ outputs: Record<string, unknown> }> | null,
+      events: [] as Array<{ eventType: string; nodeId?: string }>,
+      completions: [] as unknown[],
+      sleeps: [] as Array<{ name: string; duration: unknown }>,
+    })
+
+    new Script(`
+      ${createTestableWorkflowRuntime(manifest)}
+      const env = {
+        C0_WORKFLOW_ACTIONS: {
+          recordWorkflowEvent: async (event) => {
+            events.push(event);
+            return { ok: true };
+          },
+          completeWorkflowRun: async (result) => {
+            completions.push(result);
+            return { ok: true };
+          },
+        },
+      };
+      const step = {
+        do: async (...args) => args[args.length - 1](),
+        sleep: async (name, duration) => {
+          sleeps.push({ name, duration });
+        },
+      };
+      const workflow = new TenantWorkflow();
+      workflow.env = env;
+      resultPromise = workflow.run({
+        payload: {
+          workflowId: "wf_1",
+          runId: "run_1",
+          userId: "user_1",
+          trigger: {
+            kind: "manual",
+            nodeId: "manual",
+            payload: { alertId: "alert_1" },
+          },
+        },
+        timestamp: new Date("2026-01-01T00:00:00.000Z"),
+      }, step);
+    `).runInContext(context)
+
+    const result = await context.resultPromise
+
+    expect(context.sleeps).toEqual([
+      { name: "wait:sleep", duration: "5 minutes" },
+      { name: "fallbackWait:sleep", duration: "5 minutes" },
+    ])
+    expect(result?.outputs.wait).toEqual({ value: { alertId: "alert_1" } })
+    expect(result?.outputs.fallbackWait).toEqual({ value: { alertId: "alert_1" } })
+    expect(context.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ eventType: "node_completed", nodeId: "wait" }),
+      ]),
+    )
+  })
+
   it("redacts secret node values from persisted events and run output", async () => {
     const manifest: WorkflowManifest = {
       version: WORKFLOW_MANIFEST_VERSION,
